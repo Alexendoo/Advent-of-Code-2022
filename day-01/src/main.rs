@@ -25,5 +25,5 @@ fn main() {
     let largest = heap.iter().map(|sum| sum.0);
 
     println!("Part 1: {}", largest.clone().max().unwrap());
-    println!("Part 2: {}", heap.iter().map(|sum| sum.0).sum::<u64>())
+    println!("Part 2: {}", heap.iter().map(|sum| sum.0).sum::<u64>());
 }
