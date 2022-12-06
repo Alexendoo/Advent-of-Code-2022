@@ -1,15 +1,16 @@
-fn main() {
-    let input = include_str!("input");
-
-    let part_1 = 4 + input
-        .as_bytes()
-        .windows(4)
+fn solve(marker_len: usize) -> usize {
+    include_bytes!("input")
+        .windows(marker_len)
         .position(|window| {
             window
                 .iter()
                 .all(|ch| window.iter().filter(|&c| c == ch).count() == 1)
         })
-        .unwrap();
+        .unwrap()
+        + marker_len
+}
 
-    println!("Part 1: {part_1}");
+fn main() {
+    println!("Part 1: {}", solve(4));
+    println!("Part 2: {}", solve(14));
 }
