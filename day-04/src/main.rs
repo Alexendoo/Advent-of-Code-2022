@@ -14,8 +14,8 @@ fn main() {
     let part_1 = ranges
         .iter()
         .filter(|(l, r)| {
-            (l.contains(&r.start()) && l.contains(&r.end()))
-                || (r.contains(&l.start()) && r.contains(&l.end()))
+            (l.contains(r.start()) && l.contains(r.end()))
+                || (r.contains(l.start()) && r.contains(l.end()))
         })
         .count();
 
@@ -24,10 +24,10 @@ fn main() {
     let part_2 = ranges
         .iter()
         .filter(|(l, r)| {
-            l.contains(&r.start())
-                || l.contains(&r.end())
-                || r.contains(&l.start())
-                || r.contains(&l.end())
+            l.contains(r.start())
+                || l.contains(r.end())
+                || r.contains(l.start())
+                || r.contains(l.end())
         })
         .count();
 
