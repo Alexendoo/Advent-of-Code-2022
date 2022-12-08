@@ -1,4 +1,5 @@
-use std::collections::{BTreeSet, HashSet};
+use std::collections::HashSet;
+use std::mem;
 
 fn visible<'a, I>(board: &'a [Vec<i8>], positions: I) -> impl Iterator<Item = (usize, usize)> + 'a
 where
@@ -34,11 +35,35 @@ fn main() {
     let ttb = (0..height).map(|y| (0..width).map(move |x| (x, y)));
     let btt = ttb.clone().map(|i| i.rev());
 
-    let set: BTreeSet<_> = visible(&board, ltr)
+    let set: HashSet<_> = visible(&board, ltr)
         .chain(visible(&board, rtl))
         .chain(visible(&board, ttb))
         .chain(visible(&board, btt))
         .collect();
 
     println!("Part 1: {}", set.len());
+
+    let max_scenic: usize = set
+        .into_iter()
+        .map(|(x, y)| {
+            let house_height = board[y][x];
+
+            [
+                &mut (0..y).rev().map(|y| (x, y)) as &mut dyn Iterator<Item = (usize, usize)>,
+                &mut (0..x).rev().map(|x| (x, y)),
+                &mut (y..height).map(|y| (x, y)).skip(1),
+                &mut (x..width).map(|x| (x, y)).skip(1),
+            ]
+            .into_iter()
+            .map(|iter| {
+                let mut viewable = true;
+                iter.take_while(|&(x, y)| mem::replace(&mut viewable, board[y][x] < house_height))
+                    .count()
+            })
+            .product()
+        })
+        .max()
+        .unwrap();
+
+    println!("Part 2: {max_scenic}");
 }
