@@ -17,25 +17,25 @@ fn cycles() -> impl Iterator<Item = i32> {
 }
 
 fn main() {
-    let part_1: i32 = cycles()
-        .enumerate()
-        .skip(19)
-        .step_by(40)
-        .map(|(i, x)| (i + 1) as i32 * x)
-        .sum();
-    println!("Part 1: {part_1}");
+    let mut part_1 = 0;
+    let mut part_2 = String::with_capacity(246);
 
-    for (cycle, x) in cycles().enumerate() {
-        let draw_pos = cycle as i32 % 40;
+    for (i, x) in cycles().enumerate() {
+        let draw_pos = i as i32 % 40;
 
         if x.abs_diff(draw_pos) <= 1 {
-            print!("#");
+            part_2.push('#');
         } else {
-            print!(".");
+            part_2.push('.');
         }
 
-        if draw_pos == 39 {
-            println!();
+        match draw_pos {
+            19 => part_1 += (i + 1) as i32 * x,
+            39 => part_2.push('\n'),
+            _ => {}
         }
     }
+
+    println!("Part 1: {part_1}");
+    println!("Part 2:\n{part_2}");
 }
