@@ -3,15 +3,51 @@
 use std::cell::RefCell;
 use std::mem;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Monkey {
-    items: Vec<u32>,
+    items: Vec<u64>,
     op: char,
-    operands: [Option<u32>; 2],
-    test: u32,
+    operands: [Option<u64>; 2],
+    test: u64,
     then: usize,
     r#else: usize,
     inspected: usize,
+}
+
+fn solve(monkeys: Vec<RefCell<Monkey>>, divisor: u64, rounds: u64, domain: u64) -> usize {
+    for _ in 0..rounds {
+        for mut monkey in monkeys.iter().map(RefCell::borrow_mut) {
+            monkey.inspected += monkey.items.len();
+
+            for item in mem::take(&mut monkey.items) {
+                let [lhs, rhs] = monkey.operands.map(|side| side.unwrap_or(item) % domain);
+                let item = match monkey.op {
+                    '+' => (lhs + rhs) / divisor,
+                    '*' => (lhs * rhs) / divisor,
+                    _ => unreachable!(),
+                };
+
+                let throw = if item % monkey.test == 0 {
+                    monkey.then
+                } else {
+                    monkey.r#else
+                };
+                monkeys[throw].borrow_mut().items.push(item);
+            }
+        }
+    }
+
+    let mut largest: Vec<usize> = monkeys
+        .iter()
+        .map(|monkey| monkey.borrow().inspected)
+        .collect();
+    largest.sort_unstable();
+
+    if let [.., a, b] = largest[..] {
+        a * b
+    } else {
+        panic!()
+    }
 }
 
 fn main() {
@@ -37,35 +73,8 @@ fn main() {
         }));
     }
 
-    for _ in 0..20 {
-        for mut monkey in monkeys.iter().map(RefCell::borrow_mut) {
-            monkey.inspected += monkey.items.len();
+    let domain: u64 = monkeys.iter().map(|monkey| monkey.borrow().test).product();
 
-            for item in mem::take(&mut monkey.items) {
-                let [lhs, rhs] = monkey.operands.map(|side| side.unwrap_or(item));
-                let item = match monkey.op {
-                    '+' => (lhs + rhs) / 3,
-                    '*' => (lhs * rhs) / 3,
-                    _ => unreachable!(),
-                };
-
-                let throw = if item % monkey.test == 0 {
-                    monkey.then
-                } else {
-                    monkey.r#else
-                };
-                monkeys[throw].borrow_mut().items.push(item);
-            }
-        }
-    }
-
-    let mut largest: Vec<usize> = monkeys
-        .iter()
-        .map(|monkey| monkey.borrow().inspected)
-        .collect();
-    largest.sort_unstable();
-
-    if let [.., a, b] = largest[..] {
-        println!("Part 1: {}", a * b);
-    }
+    println!("Part 1: {}", solve(monkeys.clone(), 3, 20, domain));
+    println!("Part 2: {}", solve(monkeys, 1, 10000, domain));
 }
