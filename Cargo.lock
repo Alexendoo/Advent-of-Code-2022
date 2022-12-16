@@ -9,6 +9,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
+name = "bittle"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1b31d631988ae144198083b6b245215f9cd81cfeaf3efc1b99ecf6948b7db5a"
+
+[[package]]
 name = "day-01"
 version = "0.1.0"
 
@@ -79,6 +85,7 @@ version = "0.1.0"
 name = "day-16"
 version = "0.1.0"
 dependencies = [
+ "bittle",
  "pathfinding",
 ]
 
