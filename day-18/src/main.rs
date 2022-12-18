@@ -1,5 +1,6 @@
 #![feature(iter_next_chunk)]
 
+use pathfinding::prelude::dfs_reach;
 use std::collections::HashSet;
 
 fn main() {
@@ -20,25 +21,30 @@ fn main() {
         bounds.end = bounds.end.max(coord + 2);
     }
 
-    let neighbours = |x, y, z| {
+    let neighbours = |&[x, y, z]: &[i32; 3]| {
         [
-            [1, 0, 0],
-            [-1, 0, 0],
-            [0, 1, 0],
-            [0, -1, 0],
-            [0, 0, 1],
-            [0, 0, -1],
+            [x + 1, y, z],
+            [x - 1, y, z],
+            [x, y + 1, z],
+            [x, y - 1, z],
+            [x, y, z + 1],
+            [x, y, z - 1],
         ]
         .into_iter()
-        .map(move |[dx, dy, dz]| [x + dx, y + dy, z + dz])
         .filter(|point| point.iter().all(|coord| bounds.contains(coord)))
+        .filter(|point| !points.contains(point))
     };
 
-    let surface_area = points
-        .iter()
-        .flat_map(|&[x, y, z]| neighbours(x, y, z))
-        .filter(|point| !points.contains(point))
-        .count();
+    let surface_area = points.iter().flat_map(neighbours).count();
 
     println!("Part 1: {surface_area}");
+
+    let exterior_points: HashSet<[i32; 3]> = dfs_reach([bounds.start; 3], neighbours).collect();
+    let exterior_surface_area = points
+        .iter()
+        .flat_map(neighbours)
+        .filter(|point| exterior_points.contains(point))
+        .count();
+
+    println!("Part 2: {exterior_surface_area}");
 }
