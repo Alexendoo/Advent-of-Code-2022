@@ -1,5 +1,5 @@
-use pathfinding::prelude::dfs_reach;
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use rand::prelude::*;
+use rayon::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 struct Blueprint {
@@ -11,15 +11,7 @@ struct Blueprint {
     geode: (u32, u32),
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-struct Robots {
-    ore: u32,
-    clay: u32,
-    obsidian: u32,
-    geode: u32,
-}
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, Copy)]
 struct Resources {
     ore: u32,
     clay: u32,
@@ -27,67 +19,39 @@ struct Resources {
     geode: u32,
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-struct State {
-    minute: u32,
-    robots: Robots,
-    resources: Resources,
-}
+fn random_walk(bp: Blueprint, rng: &mut SmallRng, time: u32) -> u32 {
+    let mut produced = Resources::default();
+    let mut robots = Resources {
+        ore: 1,
+        ..Resources::default()
+    };
 
-impl State {
-    fn neighbours(mut self, blueprint: Blueprint) -> impl Iterator<Item = State> {
-        self.minute += 1;
+    for _ in 0..time {
+        let start = produced;
 
-        let next_state = || {
-            let mut next = self;
-            let State {
-                resources, robots, ..
-            } = &mut next;
+        produced.ore += robots.ore;
+        produced.clay += robots.clay;
+        produced.obsidian += robots.obsidian;
+        produced.geode += robots.geode;
 
-            resources.ore += robots.ore;
-            resources.clay += robots.clay;
-            resources.obsidian += robots.obsidian;
-            resources.geode += robots.geode;
-
-            next
-        };
-
-        [
-            Some(next_state()),
-            (self.resources.ore >= blueprint.ore).then(|| {
-                let mut next = next_state();
-                next.robots.ore += 1;
-                next.resources.ore -= blueprint.ore;
-                next
-            }),
-            (self.resources.ore >= blueprint.clay).then(|| {
-                let mut next = next_state();
-                next.robots.clay += 1;
-                next.resources.ore -= blueprint.clay;
-                next
-            }),
-            (self.resources.ore >= blueprint.obsidian.0
-                && self.resources.clay >= blueprint.obsidian.1)
-                .then(|| {
-                    let mut next = next_state();
-                    next.robots.obsidian += 1;
-                    next.resources.ore -= blueprint.obsidian.0;
-                    next.resources.clay -= blueprint.obsidian.1;
-                    next
-                }),
-            (self.resources.ore >= blueprint.geode.0
-                && self.resources.obsidian >= blueprint.geode.1)
-                .then(|| {
-                    let mut next = next_state();
-                    next.robots.geode += 1;
-                    next.resources.ore -= blueprint.geode.0;
-                    next.resources.obsidian -= blueprint.geode.1;
-                    next
-                }),
-        ]
-        .into_iter()
-        .filter_map(move |state| if self.minute <= 24 { state } else { None })
+        if start.ore >= bp.geode.0 && start.obsidian >= bp.geode.1 && rng.gen() {
+            robots.geode += 1;
+            produced.ore -= bp.geode.0;
+            produced.obsidian -= bp.geode.1;
+        } else if start.ore >= bp.obsidian.0 && start.clay >= bp.obsidian.1 && rng.gen() {
+            robots.obsidian += 1;
+            produced.ore -= bp.obsidian.0;
+            produced.clay -= bp.obsidian.1;
+        } else if start.ore >= bp.clay && rng.gen() {
+            robots.clay += 1;
+            produced.ore -= bp.clay;
+        } else if start.ore >= bp.ore && rng.gen() {
+            robots.ore += 1;
+            produced.ore -= bp.ore;
+        }
     }
+
+    produced.geode
 }
 
 fn main() {
@@ -109,12 +73,9 @@ fn main() {
     let quality: u32 = blueprints
         .par_iter()
         .map(|&blueprint| {
-            let mut state = State::default();
-            state.robots.ore = 1;
-
-            let geodes = dfs_reach(state, |state| state.neighbours(blueprint))
-                .filter(|state| state.minute == 24)
-                .map(|state| state.resources.geode)
+            let mut rng = SmallRng::from_entropy();
+            let geodes = (0..10_000_000)
+                .map(|_| random_walk(blueprint, &mut rng, 24))
                 .max()
                 .unwrap();
 
@@ -123,4 +84,24 @@ fn main() {
         .sum();
 
     println!("Part 1: {quality}");
+
+    let geodes: u32 = blueprints
+        .par_iter()
+        .take(3)
+        .map(|&blueprint| {
+            (0..100)
+                .into_par_iter()
+                .map(|_| {
+                    let mut rng = SmallRng::from_entropy();
+                    (0..10_000_000)
+                        .map(|_| random_walk(blueprint, &mut rng, 32))
+                        .max()
+                        .unwrap()
+                })
+                .max()
+                .unwrap()
+        })
+        .product();
+
+    println!("Part 2: {geodes}");
 }
