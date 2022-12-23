@@ -1,11 +1,72 @@
-use std::collections::HashMap;
-
 use regex::Regex;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Tile {
     Open,
     Wall,
+}
+
+//      (0, -1)
+// (-1, 0)   (1, 0)
+//      (0, 1)
+const UP: (i32, i32) = (0, -1);
+const RIGHT: (i32, i32) = (1, 0);
+const DOWN: (i32, i32) = (0, 1);
+const LEFT: (i32, i32) = (-1, 0);
+
+type Board = HashMap<(i32, i32), Tile>;
+
+fn solve<F>(board: &Board, path: &str, wrap: F) -> i32
+where
+    F: Fn(i32, i32, i32, i32) -> (i32, i32, i32, i32),
+{
+    let mut x = (0..)
+        .find(|&x| board.get(&(x, 0)).copied() == Some(Tile::Open))
+        .unwrap();
+    let mut y = 0;
+
+    let mut dx = 1;
+    let mut dy = 0;
+
+    for instruction in Regex::new(r"\d+|[RL]").unwrap().find_iter(path) {
+        match instruction.as_str() {
+            "R" => (dx, dy) = (-dy, dx),
+            "L" => (dx, dy) = (dy, -dx),
+            n => {
+                for _ in 0..n.parse::<i32>().unwrap() {
+                    match board.get(&(x + dx, y + dy)).copied() {
+                        Some(Tile::Open) => {
+                            x += dx;
+                            y += dy;
+                        }
+                        Some(Tile::Wall) => {
+                            break;
+                        }
+                        None => {
+                            let (wrap_x, wrap_y, wrap_dx, wrap_dy) = wrap(x, y, dx, dy);
+
+                            if board.get(&(wrap_x, wrap_y)).copied() == Some(Tile::Open) {
+                                x = wrap_x;
+                                y = wrap_y;
+                                dx = wrap_dx;
+                                dy = wrap_dy;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let facing = match (dx, dy) {
+        RIGHT => 0,
+        DOWN => 1,
+        LEFT => 2,
+        UP => 3,
+        _ => unreachable!(),
+    };
+    (y + 1) * 1000 + (x + 1) * 4 + facing
 }
 
 fn main() {
@@ -23,101 +84,54 @@ fn main() {
         })
         .collect();
 
-    let x_max = board.keys().map(|&(x, _)| x).max().unwrap() + 1;
-    let y_max = board.keys().map(|&(_, y)| y).max().unwrap() + 1;
+    println!(
+        "Part 1: {}",
+        solve(&board, path, |x, y, dx, dy| {
+            (1..)
+                .map(|step| {
+                    (
+                        (x + dx * step).rem_euclid(150),
+                        (y + dy * step).rem_euclid(200),
+                        dx,
+                        dy,
+                    )
+                })
+                .find(|&(x, y, ..)| board.get(&(x, y)).is_some())
+                .unwrap()
+        })
+    );
 
-    let mut x = (0..)
-        .find(|&x| board.get(&(x, 0)).copied() == Some(Tile::Open))
-        .unwrap();
-    let mut y = 0;
+    println!(
+        "Part 2: {}",
+        solve(&board, path, |x, y, dx, dy| {
+            let (face_x, face_y) = (x / 50, y / 50);
 
-    //      (0, -1)
-    // (-1, 0)   (1, 0)
-    //      (0, 1)
-    let mut dx = 1;
-    let mut dy = 0;
+            let (x, y, (dx, dy)) = match (face_x, face_y, (dx, dy)) {
+                (1, 0, LEFT) => (0, 149 - y, RIGHT),
+                (0, 2, LEFT) => (50, 149 - y, RIGHT),
 
-    for instruction in Regex::new(r"\d+|[RL]").unwrap().find_iter(path) {
-        // println!("INS #{i}: {}", instruction.as_str());
+                (0, 3, DOWN) => (x + 100, 0, DOWN),
+                (2, 0, UP) => (x - 100, 199, UP),
 
-        match instruction.as_str() {
-            "R" => (dx, dy) = (-dy, dx),
-            "L" => (dx, dy) = (dy, -dx),
-            n => {
-                for _ in 0..n.parse::<i32>().unwrap() {
+                (1, 2, DOWN) => (49, x + 100, LEFT),
+                (0, 3, RIGHT) => (y - 100, 149, UP),
 
-                    match board.get(&(x + dx, y + dy)).copied() {
-                        Some(Tile::Open) => {
-                            x += dx;
-                            y += dy;
-                        }
-                        Some(Tile::Wall) => {
-                            break;
-                        }
-                        None => {
-                            for step in 1.. {
-                                let wrapped_x = (x + dx * step).rem_euclid(x_max);
-                                let wrapped_y = (y + dy * step).rem_euclid(y_max);
+                (0, 2, UP) => (50, 50 + x, RIGHT),
+                (1, 1, LEFT) => (y - 50, 100, DOWN),
 
-                                match board.get(&(wrapped_x, wrapped_y)) {
-                                    Some(Tile::Open) => {
-                                        x = wrapped_x;
-                                        y = wrapped_y;
-                                        break;
-                                    }
-                                    Some(Tile::Wall) => {
-                                        break;
-                                    }
-                                    None => {}
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+                (1, 0, UP) => (0, x + 100, RIGHT),
+                (0, 3, LEFT) => (y - 100, 0, DOWN),
 
-        // print(&board, (x, y), (x_max, y_max), (dx, dy));
-    }
+                (1, 1, RIGHT) => (y + 50, 49, UP),
+                (2, 0, DOWN) => (99, x - 50, LEFT),
 
-    let facing = match (dx, dy) {
-        (1, 0) => 0,
-        (0, 1) => 1,
-        (-1, 0) => 2,
-        (0, -1) => 3,
-        _ => unreachable!(),
-    };
-    println!("{}", (y + 1) * 1000 + (x + 1) * 4 + facing);
+                (2, 0, RIGHT) => (99, 149 - y, LEFT),
+                (1, 2, RIGHT) => (149, 149 - y, LEFT),
+
+                _ => unimplemented!(),
+            };
+
+            (x, y, dx, dy)
+        })
+    )
 }
-
-// fn print(
-//     board: &HashMap<(i32, i32), Tile>,
-//     pos: (i32, i32),
-//     max: (i32, i32),
-//     direction: (i32, i32),
-// ) {
-//     let mut out = String::new();
-
-//     for y in 0..max.1 {
-//         for x in 0..max.0 {
-//             let tile = match board.get(&(x, y)).copied() {
-//                 _ if (x, y) == pos => match direction {
-//                     (1, 0) => '>',
-//                     (0, -1) => '^',
-//                     (-1, 0) => '<',
-//                     (0, 1) => 'v',
-//                     _ => unreachable!(),
-//                 },
-//                 Some(Tile::Open) => '.',
-//                 Some(Tile::Wall) => '#',
-//                 None => ' ',
-//             };
-
-//             out.push(tile);
-//         }
-
-//         out.push('\n');
-//     }
-
-//     println!("{out}");
-// }
