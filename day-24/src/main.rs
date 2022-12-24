@@ -9,22 +9,6 @@ enum Tile {
     Empty,
 }
 
-impl std::fmt::Debug for Tile {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Tile::Up => '^',
-                Tile::Down => 'v',
-                Tile::Left => '<',
-                Tile::Right => '>',
-                Tile::Empty => '.',
-            }
-        )
-    }
-}
-
 fn occupied(board: &Matrix<Tile>, turn: i32, x: i32, y: i32) -> bool {
     if !(0..board.columns as i32).contains(&x) || !(0..board.rows as i32).contains(&y) {
         return true;
@@ -46,21 +30,60 @@ fn occupied(board: &Matrix<Tile>, turn: i32, x: i32, y: i32) -> bool {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum Trip {
+    First,
+    Back,
+    Second,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct State {
     x: i32,
     y: i32,
     turn: i32,
+    trip: Trip,
 }
 
 impl State {
-    fn moves(self, board: &Matrix<Tile>) -> impl Iterator<Item = (State, usize)> + '_ {
-        let (x, y) = (self.x, self.y);
-        let turn = self.turn + 1;
+    fn moves(self, board: &Matrix<Tile>) -> impl Iterator<Item = (State, u32)> + '_ {
+        let Self { x, y, turn, trip } = self;
+        let turn = turn + 1;
+
+        let start = (0, -1);
+        let end = (board.columns as i32 - 1, board.rows as i32);
 
         [(x, y), (x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
             .into_iter()
-            .filter(move |&(x, y)| (x, y) == (0, -1) || !occupied(board, turn, x, y))
-            .map(move |(x, y)| (Self { x, y, turn }, 1))
+            .filter_map(move |(x, y)| {
+                let mut trip = trip;
+                if (x, y) == start {
+                    if trip == Trip::Back {
+                        trip = Trip::Second;
+                    }
+                } else if (x, y) == end {
+                    if trip == Trip::First {
+                        trip = Trip::Back;
+                    }
+                } else if occupied(board, turn, x, y) {
+                    return None;
+                };
+
+                Some((Self { x, y, turn, trip }, 1))
+            })
+    }
+
+    fn heuristic(self, board: &Matrix<Tile>) -> u32 {
+        let Self { x, y, .. } = self;
+        let (start_x, start_y) = (0i32, -1i32);
+        let (end_x, end_y) = (board.columns as i32 - 1, board.rows as i32);
+
+        let start_to_end = start_x.abs_diff(end_x) + start_y.abs_diff(end_y);
+
+        match self.trip {
+            Trip::First => x.abs_diff(end_x) + y.abs_diff(end_y) + start_to_end * 2,
+            Trip::Back => x.abs_diff(start_x) + y.abs_diff(start_y) + start_to_end,
+            Trip::Second => x.abs_diff(end_x) + y.abs_diff(end_y),
+        }
     }
 }
 
@@ -84,19 +107,24 @@ fn main() {
         }
     }
 
-    let state = State {
-        x: 0,
-        y: -1,
-        turn: 0,
+    let solve = |trip| {
+        astar(
+            &State {
+                x: 0,
+                y: -1,
+                turn: 0,
+                trip,
+            },
+            |state| state.moves(&board),
+            |state| state.heuristic(&board),
+            |&State { x, y, trip, .. }| {
+                (x + 1 == width as i32) && (y == height as i32) && trip == Trip::Second
+            },
+        )
+        .unwrap()
+        .1
     };
 
-    let (_, n) = astar(
-        &state,
-        |state| state.moves(&board),
-        |state| 0,
-        |state| (state.x + 1 == width as i32) && (state.y + 1 == height as i32),
-    )
-    .unwrap();
-
-    println!("Part 1: {}", n + 1);
+    println!("Part 1: {}", solve(Trip::Second));
+    println!("Part 2: {}", solve(Trip::First));
 }
